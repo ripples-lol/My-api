@@ -1,14 +1,14 @@
 export default function handler(req, res) {
-    const { jobId, username } = req.query;
+    // Accept both parameter names
+    const jobId = req.query.jobId || req.query.gameInstanceId;
+    const username = req.query.username;
     
-    // The key is using roblox:// protocol with the correct format
     const robloxUrl = `roblox://placeId=142823291&gameInstanceId=${jobId || ''}`;
     
-    // HTML that auto-redirects to Roblox
     const html = `<!DOCTYPE html>
 <html>
 <head>
-    <title>Joining ${username || 'Victim'}'s server...</title>
+    <title>Joining ${username || 'Victim'}'s game...</title>
     <meta http-equiv="refresh" content="0; url=${robloxUrl}">
     <style>
         body {

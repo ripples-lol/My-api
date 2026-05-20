@@ -1,0 +1,1070 @@
+if _G.__SkiddexWindUI_Running then return end
+_G.__SkiddexWindUI_Running = true
+
+-- ========== SERVICES ==========
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local Workspace = game:GetService("Workspace")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+local lp = Players.LocalPlayer
+
+-- ========== HIDDEN PROPERTY FUNCTIONS ==========
+local _shp = sethiddenproperty
+local _simrad = setsimulationradius
+local ZERO_V3 = Vector3.new()
+local NAN_V3 = Vector3.new(0/0, 0/0, 0/0)
+local CF_IDENTITY = CFrame.new()
+
+-- ========== CHECK IF MM2 ==========
+local isMM2 = game.PlaceId == 142823291
+
+-- ========== SET SIMULATION RADIUS ==========
+task.spawn(function()
+    lp.SimulationRadius = 99999
+    lp.MaximumSimulationRadius = 99999
+    pcall(_simrad, 99999)
+    RunService.Heartbeat:Connect(function()
+        lp.SimulationRadius = 99999
+        lp.MaximumSimulationRadius = 99999
+    end)
+end)
+
+-- ========== CHARACTER REFS ==========
+local Char = lp.Character or lp.CharacterAdded:Wait()
+local Hum = Char and Char:FindFirstChildWhichIsA("Humanoid")
+local Root = Hum and Hum.RootPart or Char:FindFirstChild("HumanoidRootPart")
+
+lp.CharacterAdded:Connect(function()
+    repeat task.wait()
+        Char = lp.Character or lp.CharacterAdded:Wait()
+        Hum = Char and Char:FindFirstChildWhichIsA("Humanoid")
+        Root = Hum and Hum.RootPart or Char:FindFirstChild("HumanoidRootPart")
+    until Char and Hum and Root
+end)
+
+-- ========== WINDUI SETUP ==========
+local WindUI = loadstring(game:HttpGet("https://github.com/Footagesus/WindUI/releases/latest/download/main.lua"))()
+
+WindUI:AddTheme({
+    Name = "Skiddex",
+    Accent = Color3.fromRGB(255, 75, 75),
+    Dialog = Color3.fromRGB(20, 5, 5),
+    Outline = Color3.fromRGB(255, 75, 75),
+    Text = Color3.fromRGB(255, 200, 200),
+    Placeholder = Color3.fromRGB(200, 100, 100),
+    Background = Color3.fromRGB(10, 0, 0),
+    Button = Color3.fromRGB(50, 10, 10),
+    Icon = Color3.fromRGB(255, 75, 75),
+})
+WindUI:SetTheme("Skiddex")
+
+local Window = WindUI:CreateWindow({ 
+    Title = "Skiddex | WindUI", 
+    Icon = "skull", 
+    Author = "by @not_.gato | Converted by waguri", 
+    Folder = "SkiddexWindUI", 
+    Transparent = true, 
+    Theme = "Skiddex" 
+})
+Window:ToggleTransparency(true)
+
+-- ========== CREATE TABS ==========
+local MainTab = Window:Tab({ Title = "Main", Icon = "house" })
+local FunnyTab = Window:Tab({ Title = "Funny", Icon = "smile" })
+local HelpersTab = Window:Tab({ Title = "Helpers", Icon = "zap" })
+local OPTab = Window:Tab({ Title = "OP", Icon = "sword" })
+local SettingsTab = Window:Tab({ Title = "Settings", Icon = "settings" })
+
+-- ========== STATE ==========
+local triplet = {}
+local cachedRoles = {}
+local autoFlingMurderer = false
+local autoFlingSheriff = false
+local isFlinging = false
+local selectedPlayer = nil
+local currentConnections = {}
+
+-- ========== NOTIFY ==========
+local function notify(title, msg, icon)
+    WindUI:Notify({ Title = title, Content = msg, Duration = 2, Icon = icon or "info" })
+end
+
+-- ========== FLING SPECIFIC PLAYER (CORE FUNCTION) ==========
+local function flingSpecificPlayer(tp)
+    if isFlinging then return end
+    isFlinging = true
+    if not tp or not tp.Character then isFlinging = false return end
+    
+    local lChar = lp.Character
+    local lRoot = lChar and lChar:FindFirstChild("HumanoidRootPart")
+    local lHumanoid = lChar and lChar:FindFirstChild("Humanoid")
+    local tChar = tp.Character
+    local tRoot = tChar and tChar:FindFirstChild("HumanoidRootPart")
+    
+    if not lRoot or not tRoot or not lHumanoid then isFlinging = false return end
+
+    local savedPos = lRoot.CFrame
+    local sessionActive = true
+    local flingCon
+    flingCon = RunService.Heartbeat:Connect(function()
+        if not sessionActive or not lRoot.Parent or not tRoot.Parent then
+            if flingCon then flingCon:Disconnect() flingCon = nil end
+            return
+        end
+        pcall(_shp, lHumanoid, "MoveDirectionInternal", NAN_V3)
+        pcall(_shp, lRoot, "PhysicsRepRootPart", tRoot)
+        lRoot.CFrame = tRoot.CFrame
+        lRoot.Velocity = ZERO_V3
+        lRoot.AssemblyLinearVelocity = ZERO_V3
+        lRoot.AssemblyAngularVelocity = ZERO_V3
+        lRoot.RotVelocity = ZERO_V3
+    end)
+
+    task.delay(1, function()
+        sessionActive = false
+        if flingCon then flingCon:Disconnect() flingCon = nil end
+        pcall(_shp, lRoot, "PhysicsRepRootPart", nil)
+        if savedPos and lRoot and lRoot.Parent then
+            lRoot.CFrame = savedPos
+            lRoot.Velocity = ZERO_V3
+            lRoot.AssemblyLinearVelocity = ZERO_V3
+            lRoot.AssemblyAngularVelocity = ZERO_V3
+            lRoot.RotVelocity = ZERO_V3
+        end
+        isFlinging = false
+        notify("Fling", "Flinged " .. tp.Name, "skull")
+    end)
+end
+
+-- ========== GET TARGET FUNCTION ==========
+local function getTargetFromDropdown()
+    return selectedPlayer
+end
+
+-- ========== MM2 ROLE DETECTION ==========
+if isMM2 then
+    local function updateMM2Roles()
+        local GetPlayerData = ReplicatedStorage:FindFirstChild("GetPlayerData", true)
+        if GetPlayerData and GetPlayerData:IsA("RemoteFunction") then
+            local success, data = pcall(function() return GetPlayerData:InvokeServer() end)
+            if success and type(data) == "table" then
+                for key, val in pairs(data) do
+                    local pName = type(key) == "string" and key or tostring(key)
+                    if type(val) == "table" then
+                        if val.Name then pName = val.Name end
+                        triplet[pName] = {
+                            Role = val.Role or "Unknown",
+                            Dead = val.Dead or val.Killed or false
+                        }
+                    elseif type(val) == "string" then
+                        triplet[pName] = { Role = val, Dead = false }
+                    end
+                end
+            end
+        end
+    end
+
+    local function grole(p)
+        if triplet[p.Name] and triplet[p.Name].Role then return triplet[p.Name].Role end
+        
+        local char = p.Character
+        if not char then return nil end
+        if char:FindFirstChild("Murderer") or char:FindFirstChild("Knife") then return "Murderer" end
+        if char:FindFirstChild("Sheriff") or char:FindFirstChild("Hero") or char:FindFirstChild("Gun") then return "Sheriff" end
+        if char:FindFirstChild("Innocent") then return "Innocent" end
+        
+        for _, tool in ipairs(char:GetChildren()) do
+            if tool:IsA("Tool") then
+                local tLower = string.lower(tool.Name)
+                if tLower == "knife" or tLower == "murderer" then return "Murderer" end
+                if tLower == "gun" or tLower == "sheriff" then return "Sheriff" end
+            end
+        end
+        
+        local head = char:FindFirstChild("Head")
+        if head then
+            local billboard = head:FindFirstChildWhichIsA("BillboardGui")
+            if billboard then
+                local textLabel = billboard:FindFirstChildWhichIsA("TextLabel")
+                if textLabel and textLabel.Text then
+                    local text = string.lower(textLabel.Text)
+                    if string.match(text, "murderer") then return "Murderer" end
+                    if string.match(text, "sheriff") or string.match(text, "hero") then return "Sheriff" end
+                end
+            end
+        end
+        return "Unknown"
+    end
+
+    task.spawn(function()
+        while true do
+            updateMM2Roles()
+            for _, p in ipairs(Players:GetPlayers()) do
+                if p ~= lp then
+                    cachedRoles[p] = { Role = grole(p), Dead = false }
+                end
+            end
+            if not isFlinging then
+                if autoFlingMurderer then
+                    for p, data in pairs(cachedRoles) do
+                        if data.Role == "Murderer" and not data.Dead then
+                            flingSpecificPlayer(p)
+                            break
+                        end
+                    end
+                elseif autoFlingSheriff then
+                    for p, data in pairs(cachedRoles) do
+                        if data.Role == "Sheriff" and not data.Dead then
+                            flingSpecificPlayer(p)
+                            break
+                        end
+                    end
+                end
+            end
+            task.wait(1)
+        end
+    end)
+end
+
+-- ========== UNIVERSAL FLING FUNCTION (for all toggles) ==========
+local function createFlingFunction(offsetVector, offsetAngle, duration, extraSettings)
+    return function(targetPlayer)
+        if not targetPlayer then 
+            targetPlayer = getTargetFromDropdown()
+        end
+        if not targetPlayer or not targetPlayer.Character then return end
+        
+        local lChar = lp.Character
+        local lRoot = lChar and lChar:FindFirstChild("HumanoidRootPart")
+        local lHumanoid = lChar and lChar:FindFirstChild("Humanoid")
+        local tChar = targetPlayer.Character
+        local tRoot = tChar and tChar:FindFirstChild("HumanoidRootPart")
+        
+        if not lRoot or not tRoot or not lHumanoid then return end
+        
+        local savedPos = lRoot.CFrame
+        local sessionActive = true
+        local CF_OFFSET = CFrame.new(offsetVector) * offsetAngle
+        
+        local flingCon
+        flingCon = RunService.Heartbeat:Connect(function()
+            if not sessionActive or not lRoot.Parent or not tRoot.Parent then
+                if flingCon then flingCon:Disconnect() end
+                return
+            end
+            pcall(_shp, lHumanoid, "MoveDirectionInternal", NAN_V3)
+            pcall(_shp, lRoot, "PhysicsRepRootPart", tRoot)
+            lRoot.CFrame = tRoot.CFrame * CF_OFFSET
+            lRoot.Velocity = ZERO_V3
+            lRoot.AssemblyLinearVelocity = ZERO_V3
+            lRoot.AssemblyAngularVelocity = ZERO_V3
+            lRoot.RotVelocity = ZERO_V3
+            
+            if extraSettings and extraSettings.heartbeat then
+                extraSettings.heartbeat(lHumanoid)
+            end
+        end)
+        
+        task.delay(duration, function()
+            sessionActive = false
+            if flingCon then flingCon:Disconnect() end
+            pcall(_shp, lRoot, "PhysicsRepRootPart", nil)
+            if extraSettings and extraSettings.stop then
+                extraSettings.stop()
+            end
+            if savedPos and lRoot and lRoot.Parent then
+                lRoot.CFrame = savedPos
+            end
+            notify("Done", "Finished " .. (extraSettings and extraSettings.name or "fling"), "check")
+        end)
+    end
+end
+
+-- ========== UPDATE PLAYER LIST ==========
+local function updatePlayerList()
+    local playerList = {}
+    if isMM2 then
+        table.insert(playerList, "Murderer")
+        table.insert(playerList, "Sheriff")
+    end
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= lp then
+            table.insert(playerList, player.Name)
+        end
+    end
+    if #playerList == 0 then
+        table.insert(playerList, "No other players")
+    end
+    return playerList
+end
+
+-- ========== MAIN TAB UI ==========
+MainTab:Paragraph({
+    Title = "🎯 TARGETING & SETUP",
+    Desc = "Select a target to fling",
+    Color = "Red",
+})
+
+local playerDropdown = MainTab:Dropdown({
+    Title = "Target Player",
+    Desc = "Choose a player to target",
+    Icon = "users",
+    Values = updatePlayerList(),
+    Multi = false,
+    Callback = function(value)
+        if value == "Murderer" or value == "Sheriff" then
+            selectedPlayer = value
+            notify("Target", "Targeting: " .. value, "target")
+        else
+            selectedPlayer = Players:FindFirstChild(value)
+            if selectedPlayer then
+                notify("Target", "Selected: " .. selectedPlayer.Name, "check")
+            end
+        end
+    end
+})
+
+task.spawn(function()
+    while true do
+        task.wait(2)
+        if playerDropdown and playerDropdown.SetValues then
+            pcall(function()
+                playerDropdown:SetValues(updatePlayerList())
+            end)
+        end
+    end
+end)
+
+MainTab:Divider()
+
+MainTab:Button({
+    Title = "🔥 FLING TARGET",
+    Desc = "Fling the selected player",
+    Icon = "skull",
+    Callback = function()
+        if not selectedPlayer then
+            notify("Error", "No target selected!", "x")
+            return
+        end
+        
+        local target
+        if selectedPlayer == "Murderer" then
+            for p, data in pairs(cachedRoles) do
+                if data.Role == "Murderer" and not data.Dead then
+                    target = p
+                    break
+                end
+            end
+        elseif selectedPlayer == "Sheriff" then
+            for p, data in pairs(cachedRoles) do
+                if data.Role == "Sheriff" and not data.Dead then
+                    target = p
+                    break
+                end
+            end
+        else
+            target = selectedPlayer
+        end
+        
+        if target then
+            flingSpecificPlayer(target)
+        else
+            notify("Error", "Target not found!", "x")
+        end
+    end
+})
+
+-- ========== FUNNY TAB ==========
+FunnyTab:Paragraph({
+    Title = "😂 FUNNY FEATURES",
+    Desc = "Meme and troll features",
+    Color = "Red",
+})
+
+-- ForceJump
+local forceJumpActive = false
+local forceJumpCon = nil
+local forceJumpSavedPos = nil
+
+FunnyTab:Button({
+    Title = "🦘 FORCE JUMP",
+    Desc = "Force jump on target (0.25s)",
+    Icon = "arrow-up",
+    Callback = function()
+        local target = getTargetFromDropdown()
+        if not target or target == "Murderer" or target == "Sheriff" then
+            for p, data in pairs(cachedRoles) do
+                if data.Role == "Murderer" or data.Role == "Sheriff" then
+                    target = p
+                    break
+                end
+            end
+        end
+        if not target or not target.Character then
+            notify("Error", "No valid target!", "x")
+            return
+        end
+        
+        local lRoot = lp.Character and lp.Character:FindFirstChild("HumanoidRootPart")
+        local tRoot = target.Character and target.Character:FindFirstChild("HumanoidRootPart")
+        if not lRoot or not tRoot then return end
+        
+        forceJumpSavedPos = lRoot.CFrame
+        local CF_OFFSET = CFrame.new(0, -3, 0) * CFrame.Angles(math.rad(90), 0, math.rad(-69))
+        
+        forceJumpCon = RunService.Heartbeat:Connect(function()
+            if not lRoot.Parent or not tRoot.Parent then
+                if forceJumpCon then forceJumpCon:Disconnect() end
+                return
+            end
+            pcall(_shp, lRoot, "PhysicsRepRootPart", tRoot)
+            lRoot.CFrame = tRoot.CFrame * CF_OFFSET
+            lRoot.Velocity = ZERO_V3
+        end)
+        
+        task.delay(0.25, function()
+            if forceJumpCon then forceJumpCon:Disconnect() end
+            pcall(_shp, lRoot, "PhysicsRepRootPart", nil)
+            if forceJumpSavedPos and lRoot then
+                lRoot.CFrame = forceJumpSavedPos
+            end
+            notify("ForceJump", "Done!", "check")
+        end)
+    end
+})
+
+-- Rocket
+FunnyTab:Button({
+    Title = "🚀 ROCKET",
+    Desc = "Rocket fling (0.55s)",
+    Icon = "flame",
+    Callback = function()
+        local target = getTargetFromDropdown()
+        if not target or target == "Murderer" or target == "Sheriff" then
+            for p, data in pairs(cachedRoles) do
+                if data.Role == "Murderer" or data.Role == "Sheriff" then
+                    target = p
+                    break
+                end
+            end
+        end
+        if not target or not target.Character then
+            notify("Error", "No valid target!", "x")
+            return
+        end
+        
+        local rocketFling = createFlingFunction(
+            Vector3.new(0, -3, 0),
+            CFrame.Angles(math.rad(90), 0, math.rad(-69)),
+            0.55,
+            { name = "Rocket" }
+        )
+        rocketFling(target)
+    end
+})
+
+-- Slam
+FunnyTab:Button({
+    Title = "💥 SLAM",
+    Desc = "Slam on target (4s)",
+    Icon = "arrow-down",
+    Callback = function()
+        local target = getTargetFromDropdown()
+        if not target or target == "Murderer" or target == "Sheriff" then
+            for p, data in pairs(cachedRoles) do
+                if data.Role == "Murderer" or data.Role == "Sheriff" then
+                    target = p
+                    break
+                end
+            end
+        end
+        if not target or not target.Character then
+            notify("Error", "No valid target!", "x")
+            return
+        end
+        
+        local slamFling = createFlingFunction(
+            Vector3.new(0, 0.35, 0),
+            CF_IDENTITY,
+            4,
+            { name = "Slam" }
+        )
+        slamFling(target)
+    end
+})
+
+-- Jumpscare
+FunnyTab:Button({
+    Title = "👻 JUMPSCARE",
+    Desc = "First person jumpscare (2s)",
+    Icon = "eye",
+    Callback = function()
+        local target = getTargetFromDropdown()
+        if not target or target == "Murderer" or target == "Sheriff" then
+            for p, data in pairs(cachedRoles) do
+                if data.Role == "Murderer" or data.Role == "Sheriff" then
+                    target = p
+                    break
+                end
+            end
+        end
+        if not target or not target.Character then
+            notify("Error", "No valid target!", "x")
+            return
+        end
+        
+        local jumpscareFling = createFlingFunction(
+            Vector3.new(0, 1.5, -0.8),
+            CFrame.Angles(0, math.rad(180), 0),
+            2,
+            { name = "Jumpscare" }
+        )
+        jumpscareFling(target)
+    end
+})
+
+-- Head Sit
+local headSitActive = false
+local headSitCon = nil
+
+FunnyTab:Toggle({
+    Title = "💺 HEAD SIT",
+    Desc = "Sit on target's head",
+    Icon = "user",
+    Value = false,
+    Callback = function(value)
+        headSitActive = value
+        if headSitActive then
+            local target = getTargetFromDropdown()
+            if not target or target == "Murderer" or target == "Sheriff" then
+                for p, data in pairs(cachedRoles) do
+                    if data.Role == "Murderer" or data.Role == "Sheriff" then
+                        target = p
+                        break
+                    end
+                end
+            end
+            if not target or not target.Character then
+                notify("Error", "No valid target!", "x")
+                headSitActive = false
+                return
+            end
+            
+            local lRoot = lp.Character and lp.Character:FindFirstChild("HumanoidRootPart")
+            local lHumanoid = lp.Character and lp.Character:FindFirstChild("Humanoid")
+            local tRoot = target.Character and target.Character:FindFirstChild("HumanoidRootPart")
+            
+            headSitCon = RunService.Heartbeat:Connect(function()
+                if not headSitActive then
+                    if headSitCon then headSitCon:Disconnect() end
+                    return
+                end
+                if not lRoot or not tRoot or not lRoot.Parent or not tRoot.Parent then
+                    return
+                end
+                pcall(_shp, lRoot, "PhysicsRepRootPart", tRoot)
+                lRoot.CFrame = tRoot.CFrame * CFrame.new(0, 3, 0.9)
+                if lHumanoid then lHumanoid.Sit = true end
+            end)
+        else
+            if headSitCon then headSitCon:Disconnect() end
+            if lp.Character and lp.Character:FindFirstChild("Humanoid") then
+                lp.Character.Humanoid.Sit = false
+            end
+            pcall(_shp, Root, "PhysicsRepRootPart", nil)
+        end
+    end
+})
+
+-- Bang Animation
+local bangActive = false
+local bangAnimTrack1, bangAnimTrack2, bangAnimLoop = nil, nil, nil
+
+local function playBangAnimation(humanoid)
+    if not humanoid then return end
+    if not bangAnimTrack1 then
+        local anim1 = Instance.new("Animation")
+        anim1.AnimationId = "rbxassetid://215262147"
+        bangAnimTrack1 = humanoid:LoadAnimation(anim1)
+    end
+    if not bangAnimTrack2 then
+        local anim2 = Instance.new("Animation")
+        anim2.AnimationId = "rbxassetid://185299570"
+        bangAnimTrack2 = humanoid:LoadAnimation(anim2)
+    end
+    bangAnimTrack1:Play()
+    task.delay(0.5, function()
+        if bangAnimTrack2 then bangAnimTrack2:Play() end
+    end)
+end
+
+FunnyTab:Toggle({
+    Title = "🔫 BANG",
+    Desc = "Play shooting animation",
+    Icon = "music",
+    Value = false,
+    Callback = function(value)
+        bangActive = value
+        if bangActive and lp.Character and lp.Character:FindFirstChild("Humanoid") then
+            playBangAnimation(lp.Character.Humanoid)
+            bangAnimLoop = task.spawn(function()
+                while bangActive do
+                    task.wait(1)
+                    if lp.Character and lp.Character:FindFirstChild("Humanoid") then
+                        playBangAnimation(lp.Character.Humanoid)
+                    end
+                end
+            end)
+        elseif not bangActive and bangAnimLoop then
+            task.cancel(bangAnimLoop)
+            if bangAnimTrack1 then bangAnimTrack1:Stop() end
+            if bangAnimTrack2 then bangAnimTrack2:Stop() end
+        end
+    end
+})
+
+-- ========== HELPERS TAB ==========
+HelpersTab:Paragraph({
+    Title = "⚡ HELPER FEATURES",
+    Desc = "Movement and utility features",
+    Color = "Red",
+})
+
+-- No Jump
+local noJumpActive = false
+local noJumpCon = nil
+
+HelpersTab:Toggle({
+    Title = "🚫 NO JUMP",
+    Desc = "Prevents jumping on target",
+    Icon = "arrow-up",
+    Value = false,
+    Callback = function(value)
+        noJumpActive = value
+        if noJumpActive then
+            local target = getTargetFromDropdown()
+            if not target or target == "Murderer" or target == "Sheriff" then
+                for p, data in pairs(cachedRoles) do
+                    if data.Role == "Murderer" or data.Role == "Sheriff" then
+                        target = p
+                        break
+                    end
+                end
+            end
+            if not target or not target.Character then
+                notify("Error", "No valid target!", "x")
+                noJumpActive = false
+                return
+            end
+            
+            local lRoot = lp.Character and lp.Character:FindFirstChild("HumanoidRootPart")
+            local tRoot = target.Character and target.Character:FindFirstChild("HumanoidRootPart")
+            
+            noJumpCon = RunService.Heartbeat:Connect(function()
+                if not noJumpActive then
+                    if noJumpCon then noJumpCon:Disconnect() end
+                    return
+                end
+                if not lRoot or not tRoot then return end
+                pcall(_shp, lRoot, "PhysicsRepRootPart", tRoot)
+                lRoot.CFrame = tRoot.CFrame * CFrame.new(0, 3.45, 0) * CFrame.Angles(math.rad(-90), 0, 0)
+                lRoot.Velocity = ZERO_V3
+            end)
+        else
+            if noJumpCon then noJumpCon:Disconnect() end
+            pcall(_shp, Root, "PhysicsRepRootPart", nil)
+        end
+    end
+})
+
+-- Infinite Jump
+local infJumpActive = false
+local infJumpCon = nil
+
+HelpersTab:Toggle({
+    Title = "🦘 INFINITE JUMP",
+    Desc = "Infinite jump on target",
+    Icon = "arrow-up",
+    Value = false,
+    Callback = function(value)
+        infJumpActive = value
+        if infJumpActive then
+            local target = getTargetFromDropdown()
+            if not target or target == "Murderer" or target == "Sheriff" then
+                for p, data in pairs(cachedRoles) do
+                    if data.Role == "Murderer" or data.Role == "Sheriff" then
+                        target = p
+                        break
+                    end
+                end
+            end
+            if not target or not target.Character then
+                notify("Error", "No valid target!", "x")
+                infJumpActive = false
+                return
+            end
+            
+            local lRoot = lp.Character and lp.Character:FindFirstChild("HumanoidRootPart")
+            local tRoot = target.Character and target.Character:FindFirstChild("HumanoidRootPart")
+            
+            infJumpCon = RunService.Heartbeat:Connect(function()
+                if not infJumpActive then
+                    if infJumpCon then infJumpCon:Disconnect() end
+                    return
+                end
+                if not lRoot or not tRoot then return end
+                pcall(_shp, lRoot, "PhysicsRepRootPart", tRoot)
+                lRoot.CFrame = tRoot.CFrame * CFrame.new(0, -5.75, 0)
+                lRoot.Velocity = ZERO_V3
+            end)
+        else
+            if infJumpCon then infJumpCon:Disconnect() end
+            pcall(_shp, Root, "PhysicsRepRootPart", nil)
+        end
+    end
+})
+
+-- Platform Fly
+local platformFlyActive = false
+local platformFlyCon = nil
+
+HelpersTab:Toggle({
+    Title = "🕊️ PLATFORM FLY",
+    Desc = "Platform fly on target",
+    Icon = "wind",
+    Value = false,
+    Callback = function(value)
+        platformFlyActive = value
+        if platformFlyActive then
+            local target = getTargetFromDropdown()
+            if not target or target == "Murderer" or target == "Sheriff" then
+                for p, data in pairs(cachedRoles) do
+                    if data.Role == "Murderer" or data.Role == "Sheriff" then
+                        target = p
+                        break
+                    end
+                end
+            end
+            if not target or not target.Character then
+                notify("Error", "No valid target!", "x")
+                platformFlyActive = false
+                return
+            end
+            
+            local lRoot = lp.Character and lp.Character:FindFirstChild("HumanoidRootPart")
+            local lHumanoid = lp.Character and lp.Character:FindFirstChild("Humanoid")
+            local tRoot = target.Character and target.Character:FindFirstChild("HumanoidRootPart")
+            
+            platformFlyCon = RunService.Heartbeat:Connect(function()
+                if not platformFlyActive then
+                    if platformFlyCon then platformFlyCon:Disconnect() end
+                    return
+                end
+                if not lRoot or not tRoot then return end
+                pcall(_shp, lRoot, "PhysicsRepRootPart", tRoot)
+                lRoot.CFrame = tRoot.CFrame * CFrame.new(0, -3.45, 0) * CFrame.Angles(math.rad(-90), 0, 0)
+                lRoot.Velocity = ZERO_V3
+                if lHumanoid then lHumanoid.PlatformStand = true end
+            end)
+        else
+            if platformFlyCon then platformFlyCon:Disconnect() end
+            if lp.Character and lp.Character:FindFirstChild("Humanoid") then
+                lp.Character.Humanoid.PlatformStand = false
+            end
+            pcall(_shp, Root, "PhysicsRepRootPart", nil)
+        end
+    end
+})
+
+-- ========== OP TAB ==========
+OPTab:Paragraph({
+    Title = "💀 OP FEATURES",
+    Desc = "Powerful fling features",
+    Color = "Red",
+})
+
+-- Fling Murderer
+OPTab:Button({
+    Title = "🔪 FLING MURDERER",
+    Desc = "Find and fling the murderer",
+    Icon = "skull",
+    Callback = function()
+        for p, data in pairs(cachedRoles) do
+            if data.Role == "Murderer" and not data.Dead then
+                flingSpecificPlayer(p)
+                return
+            end
+        end
+        notify("Error", "No murderer found!", "x")
+    end
+})
+
+-- Fling Sheriff
+OPTab:Button({
+    Title = "⭐ FLING SHERIFF",
+    Desc = "Find and fling the sheriff",
+    Icon = "badge",
+    Callback = function()
+        for p, data in pairs(cachedRoles) do
+            if data.Role == "Sheriff" and not data.Dead then
+                flingSpecificPlayer(p)
+                return
+            end
+        end
+        notify("Error", "No sheriff found!", "x")
+    end
+})
+
+OPTab:Divider()
+
+-- Auto Fling Murderer
+OPTab:Toggle({
+    Title = "🤖 AUTO FLING MURDERER",
+    Desc = "Automatically fling murderer when found",
+    Icon = "bot",
+    Value = false,
+    Callback = function(value)
+        autoFlingMurderer = value
+        if value and autoFlingSheriff then
+            autoFlingSheriff = false
+        end
+        notify("Auto", value and "Auto fling murderer ON" or "Auto fling murderer OFF", "bot")
+    end
+})
+
+-- Auto Fling Sheriff
+OPTab:Toggle({
+    Title = "🤖 AUTO FLING SHERIFF",
+    Desc = "Automatically fling sheriff when found",
+    Icon = "bot",
+    Value = false,
+    Callback = function(value)
+        autoFlingSheriff = value
+        if value and autoFlingMurderer then
+            autoFlingMurderer = false
+        end
+        notify("Auto", value and "Auto fling sheriff ON" or "Auto fling sheriff OFF", "bot")
+    end
+})
+
+OPTab:Divider()
+
+-- Click Fling
+local clickFlingEnabled = false
+local clickFlingCon = nil
+
+local function startClickFling()
+    clickFlingCon = UserInputService.InputBegan:Connect(function(input, gameProcessed)
+        if gameProcessed then return end
+        if input.UserInputType ~= Enum.UserInputType.MouseButton1 then return end
+        
+        local mouse = lp:GetMouse()
+        local target = mouse.Target
+        if not target then return end
+        
+        local character = target:FindFirstAncestorWhichIsA("Model")
+        if not character then return end
+        local humanoid = character:FindFirstChild("Humanoid")
+        if not humanoid then return end
+        local targetPlayer = Players:GetPlayerFromCharacter(character)
+        if not targetPlayer or targetPlayer == lp then return end
+        
+        flingSpecificPlayer(targetPlayer)
+    end)
+end
+
+local function stopClickFling()
+    if clickFlingCon then
+        clickFlingCon:Disconnect()
+        clickFlingCon = nil
+    end
+end
+
+OPTab:Toggle({
+    Title = "🖱️ CLICK FLING",
+    Desc = "Click on any player to fling them",
+    Icon = "mouse-pointer",
+    Value = false,
+    Callback = function(value)
+        clickFlingEnabled = value
+        if clickFlingEnabled then
+            startClickFling()
+            notify("Click Fling", "Click on any player to fling!", "check")
+        else
+            stopClickFling()
+        end
+    end
+})
+
+-- Touch Fling
+local touchFlingEnabled = false
+local touchedCon = nil
+local touchFlingConnections = {}
+
+local function startTouchFling()
+    local function onTouched(hit)
+        if not touchFlingEnabled then return end
+        local char = hit:FindFirstAncestorWhichIsA("Model")
+        if not char then return end
+        local humanoid = char:FindFirstChildOfClass("Humanoid")
+        if not humanoid then return end
+        local targetPlayer = Players:GetPlayerFromCharacter(char)
+        if not targetPlayer or targetPlayer == lp then return end
+        if touchFlingConnections[targetPlayer] then return end
+        
+        local lChar = lp.Character
+        local lHrp = lChar and lChar:FindFirstChild("HumanoidRootPart")
+        local tHrp = char:FindFirstChild("HumanoidRootPart")
+        if not lHrp or not tHrp then return end
+        
+        local sessionActive = true
+        local con = RunService.Heartbeat:Connect(function()
+            if not sessionActive then return end
+            if not lHrp or not lHrp.Parent then
+                sessionActive = false
+                return
+            end
+            if not tHrp or not tHrp:IsDescendantOf(Workspace) then
+                tHrp = char:FindFirstChild("HumanoidRootPart")
+                if not tHrp then return end
+            end
+            pcall(_shp, lHrp, "PhysicsRepRootPart", tHrp)
+            lHrp.CFrame = tHrp.CFrame
+            lHrp.Velocity = ZERO_V3
+            pcall(_shp, lChar.Humanoid, "MoveDirectionInternal", NAN_V3)
+        end)
+        
+        touchFlingConnections[targetPlayer] = con
+        
+        task.delay(1.5, function()
+            sessionActive = false
+            if con then con:Disconnect() end
+            touchFlingConnections[targetPlayer] = nil
+            if lHrp and lHrp.Parent then
+                pcall(_shp, lHrp, "PhysicsRepRootPart", nil)
+            end
+        end)
+    end
+    
+    local char = lp.Character
+    if char then
+        local hrp = char:FindFirstChild("HumanoidRootPart")
+        if hrp then touchedCon = hrp.Touched:Connect(onTouched) end
+    end
+    
+    lp.CharacterAdded:Connect(function(newChar)
+        if not touchFlingEnabled then return end
+        task.wait(0.5)
+        local newHrp = newChar:FindFirstChild("HumanoidRootPart")
+        if newHrp then
+            if touchedCon then touchedCon:Disconnect() end
+            touchedCon = newHrp.Touched:Connect(onTouched)
+        end
+    end)
+end
+
+local function stopTouchFling()
+    touchFlingEnabled = false
+    if touchedCon then touchedCon:Disconnect() touchedCon = nil end
+    for _, con in pairs(touchFlingConnections) do
+        if con then con:Disconnect() end
+    end
+    touchFlingConnections = {}
+    local char = lp.Character
+    if char then
+        local hrp = char:FindFirstChild("HumanoidRootPart")
+        if hrp then pcall(_shp, hrp, "PhysicsRepRootPart", nil) end
+    end
+end
+
+OPTab:Toggle({
+    Title = "🤝 TOUCH FLING",
+    Desc = "Fling anyone who touches you",
+    Icon = "hand",
+    Value = false,
+    Callback = function(value)
+        touchFlingEnabled = value
+        if touchFlingEnabled then
+            startTouchFling()
+            notify("Touch Fling", "Enabled!", "check")
+        else
+            stopTouchFling()
+        end
+    end
+})
+
+-- Fling All
+local flingAllActive = false
+local flingAllCon = nil
+local flingAllIndex = 1
+local flingAllList = {}
+
+local function startFlingAll()
+    flingAllList = {}
+    for _, p in ipairs(Players:GetPlayers()) do
+        if p ~= lp then table.insert(flingAllList, p) end
+    end
+    if #flingAllList == 0 then return end
+    
+    flingAllIndex = 1
+    flingAllActive = true
+    
+    local function flingNext()
+        if not flingAllActive or flingAllIndex > #flingAllList then
+            flingAllActive = false
+            notify("Fling All", "Completed!", "check")
+            return
+        end
+        
+        local target = flingAllList[flingAllIndex]
+        if target and target.Character then
+            flingSpecificPlayer(target)
+        end
+        flingAllIndex = flingAllIndex + 1
+        task.delay(1.5, flingNext)
+    end
+    
+    flingNext()
+end
+
+OPTab:Button({
+    Title = "💥 FLING ALL",
+    Desc = "Fling every player in the server",
+    Icon = "users",
+    Callback = function()
+        if flingAllActive then
+            flingAllActive = false
+            notify("Fling All", "Stopped!", "x")
+        else
+            startFlingAll()
+        end
+    end
+})
+
+-- ========== SETTINGS TAB ==========
+SettingsTab:Paragraph({
+    Title = "⚙️ SETTINGS",
+    Desc = "UI and config settings",
+    Color = "Red",
+})
+
+-- Transparency toggle
+SettingsTab:Toggle({
+    Title = "Transparent Window",
+    Desc = "Toggle window transparency",
+    Icon = "eye",
+    Value = true,
+    Callback = function(value)
+        Window:ToggleTransparency(value)
+    end
+})
+
+-- ========== STARTUP NOTIFICATION ==========
+WindUI:Notify({
+    Title = "Skiddex | WindUI",
+    Content = "Loaded all features!\nSelect a target and start flinging!",
+    Duration = 4,
+    Icon = "skull"
+})

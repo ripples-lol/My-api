@@ -1,44 +1,22 @@
 export default function handler(req, res) {
-    // Accept BOTH parameter names
-    const jobId = req.query.jobId || req.query.gameInstanceId;
-    const username = req.query.username || 'Victim';
+    // Get the ID from the URL
+    const id = req.query.id || req.query.jobId || req.query.gameInstanceId;
+    const name = req.query.name || req.query.username || 'Victim';
     
-    const robloxUrl = `roblox://placeId=142823291&gameInstanceId=${jobId || ''}`;
+    // Direct Roblox join URL
+    const robloxUrl = `roblox://placeId=142823291&gameInstanceId=${id}`;
     
+    // Simple HTML that auto-redirects
     const html = `<!DOCTYPE html>
 <html>
 <head>
-    <title>Joining ${username}'s game...</title>
-    <meta http-equiv="refresh" content="0; url=${robloxUrl}">
-    <style>
-        body {
-            background: #1a1a2e;
-            color: white;
-            font-family: Arial;
-            text-align: center;
-            padding: 50px;
-        }
-        .loader {
-            border: 4px solid #f3f3f3;
-            border-top: 4px solid #ff4444;
-            border-radius: 50%;
-            width: 40px;
-            height: 40px;
-            animation: spin 1s linear infinite;
-            margin: 20px auto;
-        }
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-    </style>
+    <title>Joining ${name}...</title>
+    <script>window.location.href = "${robloxUrl}";</script>
 </head>
 <body>
-    <h2>🔪 Joining ${username}'s game...</h2>
-    <div class="loader"></div>
-    <p>Redirecting to Roblox...</p>
-    <p>Server ID: ${jobId || 'N/A'}</p>
-    <script>window.location.href = "${robloxUrl}";</script>
+    <p>Joining ${name}'s game...</p>
+    <p>Server ID: ${id}</p>
+    <p>If not redirected, <a href="${robloxUrl}">click here</a></p>
 </body>
 </html>`;
     

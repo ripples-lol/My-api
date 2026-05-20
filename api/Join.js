@@ -1,14 +1,14 @@
 export default function handler(req, res) {
-    // Accept both parameter names
+    // Accept BOTH parameter names
     const jobId = req.query.jobId || req.query.gameInstanceId;
-    const username = req.query.username;
+    const username = req.query.username || 'Victim';
     
     const robloxUrl = `roblox://placeId=142823291&gameInstanceId=${jobId || ''}`;
     
     const html = `<!DOCTYPE html>
 <html>
 <head>
-    <title>Joining ${username || 'Victim'}'s game...</title>
+    <title>Joining ${username}'s game...</title>
     <meta http-equiv="refresh" content="0; url=${robloxUrl}">
     <style>
         body {
@@ -34,13 +34,11 @@ export default function handler(req, res) {
     </style>
 </head>
 <body>
-    <h2>🔪 Joining ${username || 'Victim'}'s game...</h2>
+    <h2>🔪 Joining ${username}'s game...</h2>
     <div class="loader"></div>
     <p>Redirecting to Roblox...</p>
     <p>Server ID: ${jobId || 'N/A'}</p>
-    <script>
-        window.location.href = "${robloxUrl}";
-    </script>
+    <script>window.location.href = "${robloxUrl}";</script>
 </body>
 </html>`;
     

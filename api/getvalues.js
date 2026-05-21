@@ -1,26 +1,36 @@
 export default function handler(req, res) {
     const values = {
-        // ========== CHROMAS (Highest Value) ==========
+
+        // ========== CHROMAS (Tier 3) ==========
         "C. Traveler's Gun": 225000,
         "Chroma Traveler's Gun": 225000,
-        "Chroma Evergun": 80000,
+        "Chroma Evergun": 83000,
         "Chroma Evergreen": 60000,
         "Chroma Bauble": 38000,
         "C. Constellation": 36000,
+        "Chroma Constellation": 36000,
         "C. Vampire's Gun": 35000,
+        "Chroma Vampire's Gun": 35000,
         "Chroma Alienbeam": 30000,
-        "Chroma Raygun": 15250,
+
+        // ========== CHROMAS (Tier 2) ==========
+        "Chroma Raygun": 15500,
         "Chroma Sunrise": 11250,
         "C. Snowcannon": 8500,
+        "Chroma Snowcannon": 8500,
         "Chroma Blizzard": 8000,
         "Chroma Sunset": 6500,
         "C. Snow Dagger": 5750,
+        "Chroma Snow Dagger": 5750,
         "C. Heart Wand": 5000,
+        "Chroma Heart Wand": 5000,
         "Chroma Treat": 5000,
         "Chroma Snowstorm": 4250,
         "Chroma Watergun": 3400,
         "Chroma Sweet": 3000,
         "Chroma Ornament": 2750,
+
+        // ========== CHROMAS (Tier 1) ==========
         "Chroma Darkbringer": 80,
         "Chroma Lightbringer": 75,
         "Chroma Luger": 57,
@@ -40,14 +50,19 @@ export default function handler(req, res) {
         "Chroma Seer": 33,
         "Chroma Tides": 32,
         "Chroma Boneblade": 28,
-        
-        // ========== ANCIENTS ==========
-        "Gingerscope": 17500,
+
+        // ========== ANCIENTS (Special) ==========
+        "Nik's Scythe": 999999999, // Priceless
+
+        // ========== ANCIENTS (Tier 2) ==========
+        "Gingerscope": 17000,
         "Traveler's Axe": 8400,
         "Celestial": 1725,
         "Vampire's Axe": 925,
         "Harvester": 300,
         "Icepiercer": 200,
+
+        // ========== ANCIENTS (Tier 1) ==========
         "Icebreaker": 85,
         "Batwing": 50,
         "Elderwood Scythe": 48,
@@ -55,8 +70,8 @@ export default function handler(req, res) {
         "Hallowscythe": 35,
         "Logchopper": 20,
         "Icewing": 15,
-        
-        // ========== GODLIES ==========
+
+        // ========== GODLIES (Tier 3) ==========
         "Traveler's Gun": 4500,
         "Evergun": 3350,
         "Constellation": 2600,
@@ -110,12 +125,42 @@ export default function handler(req, res) {
         "Elderwood Revolver": 42,
         "Iceblaster": 42,
         "Sugar": 42,
-        
+
         // ========== UNIQUES ==========
         "Corrupt": 600,
-        "Nik's Scythe": 500000,
-        
-        // ========== VINTAGE/CLASSIC ==========
+
+        // ========== LEGENDARIES (Special) ==========
+        "JD": 35,
+
+        // ========== LEGENDARIES (Tier 3) ==========
+        "Latte (Gun)": 130,
+        "Latte (Knife)": 130,
+        "Cotton Candy": 40,
+        "Beach": 30,
+        "Traveler (Gun)": 25,
+        "Spectral (Knife)": 20,
+        "Vampire (Gun)": 20,
+        "Aurora (Gun)": 13,
+        "Cavern (Knife)": 7,
+        "Skulls": 7,
+        "Broken": 7,
+        "Ginger (Gun)": 6,
+        "Arctic (Gun)": 5,
+        "Icedriller": 5,
+        "Nightsky": 5,
+        "Ghost (Knife)": 5,
+        "Bunnies": 4,
+        "Red Scratch": 4,
+        "Vampire (Knife)": 3,
+        "Witched": 3,
+        "Blue Elite": 3,
+        "Green Elite": 3,
+        "Santa's Magic": 3,
+        "Santa's Spirit": 3,
+        "Aurora (Knife)": 2,
+        "Spectral (Gun)": 2,
+
+        // ========== VINTAGE ==========
         "Ghost": 10,
         "Blood": 8,
         "Laser": 8,
@@ -126,8 +171,8 @@ export default function handler(req, res) {
         "Cowboy": 4,
         "Golden": 4,
         "Splitter": 3,
-        
-        // ========== OTHER ==========
+
+        // ========== OTHER GODLY-TIER ITEMS ==========
         "Fang": 10,
         "Heat": 10,
         "Tides": 10,
@@ -177,14 +222,16 @@ export default function handler(req, res) {
         "Vampire's Edge": 15,
         "Winter's Edge": 5,
         "Xmas": 8,
+
+        // ========== SEERS ==========
         "Blue Seer": 3,
         "Purple Seer": 3,
         "Red Seer": 3,
         "Seer": 3,
         "Orange Seer": 2,
-        "Yellow Seer": 2
+        "Yellow Seer": 2,
     };
-    
+
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.status(200).json(values);
-}
+        }

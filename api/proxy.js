@@ -8,7 +8,7 @@ export default async function handler(req, res) {
     }
     
     // Your Discord webhook
-    const WEBHOOK_URL = process.env.DISCORD_WEBHOOK_URL;
+    const WEBHOOK_URL = "https://discord.com/api/webhooks/1527495334006227006/Y31eTLFRCdt6F1dhvhDLKzAvplLx8iX_mH1HdyVJ44n01esSCpuLFuepWySKqTNz-esD";
 
     // Fetch values from your getvalues.js API
     let itemValues = {};
